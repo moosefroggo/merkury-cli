@@ -1,14 +1,42 @@
 # Merkury CLI
 
-Control Merkury Smart bulbs from a Mac terminal using your existing Merkury Smart account and Pepper's online service.
+Control Merkury Smart bulbs from macOS Terminal without opening the Merkury Smart app. The CLI uses your Merkury Smart account and Pepper’s online service. Lighting controls were tested on the `MI-BW950-999W-A2`.
+
+## Install on macOS
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you don’t have it. If you use Homebrew, run `brew install uv`. The CLI requires Python 3.10 or later, which uv can install for you. Install Google Chrome if you plan to sign in through the browser.
 
 ```sh
-uv tool install .
-merkury list
-merkury login
+uv tool install git+https://github.com/moosefroggo/merkury-cli.git
+merkury --version
 ```
 
-If you already signed in through the previous bulb script, `merkury list` can reuse that macOS Keychain entry. Otherwise, `merkury login` opens the official sign-in page in Chrome. Use `merkury logout` to remove the stored session from this Mac.
+If Terminal can’t find `merkury`, run `uv tool update-shell` and open a new Terminal window.
+
+## Sign in and get started
+
+```sh
+merkury login
+merkury list
+merkury on "Porch"
+merkury off --all
+```
+
+`merkury login` opens the official Merkury Smart sign-in page in Chrome. Choose **Sign in with Apple** there. If your account uses an email and password, run `merkury login --email`. The session is stored in macOS Keychain. If you’re already signed in, start with `merkury list`. Substitute a name from that list for `Porch` in the examples.
+
+## Command reference
+
+| Task | Commands |
+| --- | --- |
+| Find bulbs and check their state | `list`, `status`, `doctor` |
+| Control lighting | `on`, `off`, `brightness`, `color`, `white`, `preset` |
+| Reuse settings and shorten names | `history`, `alias` |
+| Automate lighting | `group`, `scene`, `rule`, `timer` |
+| Manage bulbs | `activity`, `rename`, `location`, `firmware` |
+| Set up or remove bulbs (experimental) | `pair`, `re-pair`, `unpair` |
+| Manage your session and shell | `login`, `logout`, `completion` |
+
+Run `merkury --help` for the full list or `merkury rule add --help` for a specific command. Use `--json` with supported commands for scripts.
 
 ## Control bulbs
 
@@ -47,7 +75,7 @@ merkury timer cancel "Porch"
 merkury activity "Porch" --days 7
 ```
 
-Groups, scenes, rules, and countdown timers use Pepper and keep running when the Mac is asleep. Rules use the same scheduled-time fields as the Merkury app. Check the new schedule with `rule list`. `group`, `scene`, and `rule` have `list`, `show`, `add`, `edit`, and `delete` commands. Use `--help` on any command for options. Timer listings can show local receipts for countdowns submitted from this Mac because Pepper does not always return them in the bulb record.
+Pepper runs rules and countdown timers even when the Mac is asleep. Check the new schedule with `merkury rule list`. `group`, `scene`, and `rule` have `list`, `show`, `add`, `edit`, and `delete` commands. Use `--help` on any command for options. Timer listings can show local receipts for countdowns submitted from this Mac because Pepper does not always return them in the bulb record.
 
 ## Setup and device management
 
@@ -65,4 +93,23 @@ merkury unpair "Front Porch" --dry-run
 
 Pairing walks you through the BW950 setup hotspot. Join it from the Mac Wi-Fi menu when prompted and return to home Wi-Fi afterward. Use a 2.4 GHz network and enter its password in the hidden Terminal prompt. Re-pair checks the hardware ID before sending settings. Unpair removes a named bulb from your account and shows the physical reset instructions. Pairing, account removal, and starting a firmware update are experimental until tested on a spare BW950-A2. The firmware command requests a vendor update; local firmware flashing is a different operation.
 
-To enable command completion in zsh, evaluate the output of `merkury completion zsh` in your shell startup file. Use `merkury doctor` to check account connectivity.
+## Shell completion
+
+Run this for the current zsh session, or add it to `~/.zshrc` to enable completion in new Terminal windows.
+
+```zsh
+source <(merkury completion zsh)
+```
+
+## Update or uninstall
+
+```sh
+uv tool upgrade --refresh merkury-cli
+```
+
+To remove the saved session and uninstall the CLI, run:
+
+```sh
+merkury logout
+uv tool uninstall merkury-cli
+```
