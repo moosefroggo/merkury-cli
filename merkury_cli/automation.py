@@ -72,7 +72,7 @@ def schedule_actions(bulbs, power, brightness, color, white, preset):
     }
     return {
         "actions": [{"device_id": pepper_device_id(bulb), "commands": [f"power_{power}"]} for bulb in bulbs],
-        "settings": [{"device_id": pepper_device_id(bulb), "commands": commands} for bulb in bulbs] if commands else [],
+        "settings": [{"device_id": pepper_device_id(bulb), "commands": commands} for bulb in bulbs],
     }
 
 

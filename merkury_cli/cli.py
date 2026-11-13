@@ -222,7 +222,9 @@ def entities(args, client, state):
         elif operation in ("enable", "disable"):
             client.request("PUT", path, {**auto.rule_update(item), "enabled": operation == "enable"})
         else:
-            payload = auto.rule_update(item) if item else {"version": 3, "event_type": "schedule", "smart_detection_types": []}
+            payload = auto.rule_update(item) if item else {
+                "version": 3, "event_type": "schedule", "smart_detection_types": [], "enabled": True,
+            }
             payload["rule_name"] = name
             if item and item.get("event_type") != "schedule":
                 raise ValueError("This editor supports scheduled rules. Use enable, disable, or delete for other rules.")
@@ -287,6 +289,38 @@ def timer(args, client, state):
 def activity(args, client, state):
     bulbs = lights.targets(client, args, state) if args.targets or args.all or args.group else client.bulbs()
     display(args, auto.activity(client, bulbs, args.days))
+
+
+def locations(args, client, state):
+    path = "/account/locations"
+    records = client.collection(f"/account/accounts/{lights.address(client.account_id)}/locations", "locations")
+    if args.operation == "list":
+        return display(args, [
+            {"name": item.get("name") or "Default location", "id": item["locationId"],
+             "devices": len(item.get("devices") or [])}
+            for item in records
+        ])
+    if args.operation == "add":
+        result = client.request("POST", path, {"name": args.location, "accountId": client.account_id, "address": {}})
+        return display(args, {"name": args.location, "id": (result or {}).get("locationId"), "result": "accepted"})
+    location = lights.select_named(
+        [{**item, "name": item.get("name") or "Default location"} for item in records],
+        args.location, id_keys=("locationId",),
+    )
+    path = f"{path}/{lights.address(location['locationId'])}"
+    if args.operation == "move":
+        bulb = lights.select_bulb(client.bulbs(), args.bulb, state)
+        client.request("POST", f"{path}/devices", {"deviceId": pepper_device_id(bulb)})
+    elif args.operation == "rename":
+        client.request("PUT", path, {"name": args.name, "address": location.get("address") or {}})
+    else:
+        if location.get("devices") or location.get("isPristine"):
+            raise ValueError("Only empty, non-default locations can be removed.")
+        if args.dry_run:
+            return display(args, {"location": args.location, "operation": "delete"})
+        confirm(args, f"Delete location {args.location!r}?")
+        client.request("DELETE", path)
+    display(args, {"location": args.location, "operation": args.operation, "result": "accepted"})
 
 
 def firmware(args, client, state):
@@ -462,6 +496,19 @@ def make_parser():
     entry = command(subparsers, "rename", "Change a bulb’s account name", rename)
     entry.add_argument("bulb")
     entry.add_argument("name", type=nonempty)
+    location_commands = subparsers.add_parser("location", help="Manage account locations").add_subparsers(
+        dest="operation", required=True,
+    )
+    for operation in ("list", "add", "rename", "move", "delete"):
+        entry = command(location_commands, operation, f"{operation.capitalize()} account locations", locations)
+        if operation != "list":
+            entry.add_argument("location", type=nonempty, help="Location name or ID")
+        if operation == "rename":
+            entry.add_argument("name", type=nonempty)
+        if operation == "move":
+            entry.add_argument("bulb")
+        if operation == "delete":
+            destructive_flags(entry)
     firmware_commands = subparsers.add_parser("firmware", help="Inspect bulb firmware").add_subparsers(
         dest="operation", required=True,
     )

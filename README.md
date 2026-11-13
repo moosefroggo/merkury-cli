@@ -53,6 +53,9 @@ Groups, scenes, rules, and countdown timers use Pepper and keep running when the
 
 ```sh
 merkury rename "Porch" "Front Porch"
+merkury location list
+merkury location add "Second Home"
+merkury location move "Second Home" "Front Porch"
 merkury firmware status --all
 merkury firmware update "Front Porch" --dry-run
 merkury pair --name "Hall"
