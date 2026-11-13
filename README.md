@@ -23,11 +23,13 @@ merkury preset list
 merkury preset apply "Porch" reading
 merkury history colors "Porch"
 merkury history use "Porch" 1
+merkury history white "Porch"
+merkury history use "Porch" 1 --category white
 merkury alias set porch "Porch"
 merkury status porch --json
 ```
 
-Commands accept exact names, aliases, or IDs from `merkury list`. To control several bulbs, pass multiple names, `--all`, or `--group NAME`. Brightness uses 1–100 and white temperature uses 2700–6500 K. Power has its own commands. Lighting commands support `--dry-run` and normally check Pepper's reported state after sending the command. `--no-wait` skips readback. The color history holds up to five colors set through this CLI on this Mac.
+Commands accept exact names, aliases, or IDs from `merkury list`. To control several bulbs, pass multiple names, `--all`, or `--group NAME`. Brightness uses 1–100 and white temperature uses 2700–6500 K. Power has its own commands. Lighting commands support `--dry-run` and normally check Pepper's reported state after sending the command. `--no-wait` skips readback. The history holds up to five colors and white temperatures set through this CLI on this Mac.
 
 ## Groups, scenes, rules, and timers
 
@@ -45,7 +47,7 @@ merkury timer cancel "Porch"
 merkury activity "Porch" --days 7
 ```
 
-Groups, scenes, rules, and countdown timers use Pepper; the Mac does not run them after submission. Rules use the same scheduled-time fields as the Merkury app. Check the new schedule with `rule list`. `group`, `scene`, and `rule` have `list`, `show`, `add`, `edit`, and `delete` commands. Use `--help` on any command for options. Timer listings can show local receipts for countdowns submitted from this Mac because Pepper did not return those timers in the bulb record during testing. An accepted timer is not proof that it fired.
+Groups, scenes, rules, and countdown timers use Pepper and keep running when the Mac is asleep. Rules use the same scheduled-time fields as the Merkury app. Check the new schedule with `rule list`. `group`, `scene`, and `rule` have `list`, `show`, `add`, `edit`, and `delete` commands. Use `--help` on any command for options. Timer listings can show local receipts for countdowns submitted from this Mac because Pepper does not always return them in the bulb record.
 
 ## Setup and device management
 

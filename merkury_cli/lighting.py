@@ -214,15 +214,15 @@ def apply_settings(client, bulbs, build_settings, verify=True):
     return results
 
 
-def remember_color(state, bulbs, results, color):
-    history = state.setdefault("colors", {})
+def remember_setting(state, bulbs, results, category, setting, value):
+    history = state.setdefault(category, {})
     changed = False
     for bulb, row in zip(bulbs, results):
-        if "light.color" not in row["settings_sent"]:
+        if setting not in row["settings_sent"]:
             continue
         device_id = pepper_device_id(bulb)
-        recent = [existing for existing in history.get(device_id, []) if existing != color]
-        history[device_id] = [color, *recent[:4]]
+        recent = [existing for existing in history.get(device_id, []) if existing != value]
+        history[device_id] = [value, *recent[:4]]
         changed = True
     return changed
 

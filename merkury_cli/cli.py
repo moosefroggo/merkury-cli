@@ -109,17 +109,19 @@ def light_action(args, client, state):
     value = getattr(args, "value", None)
     if action == "reuse":
         bulb = bulbs[0]
-        history = state.get("colors", {}).get(pepper_device_id(bulb), [])
+        history = state.get(args.category, {}).get(pepper_device_id(bulb), [])
         if len(history) < args.index:
-            raise ValueError("No saved color at that position. See merkury history colors.")
-        action, value = "color", history[args.index - 1]
+            raise ValueError(f"No saved value at that position. See merkury history {args.category}.")
+        action, value = ("white" if args.category == "white" else "color"), history[args.index - 1]
     values = lights.settings(action, value)
     if args.dry_run:
         display(args, [{"name": device_name(bulb), "settings": values} for bulb in bulbs])
         return
     results = lights.apply_settings(client, bulbs, lambda _bulb: values, verify=not args.no_wait)
-    if action == "color" and lights.remember_color(state, bulbs, results, value):
-        lights.save_state(client.account_id, state)
+    if action in ("color", "white"):
+        category, setting = ("colors", "light.color") if action == "color" else ("white", "light.colorTemp")
+        if lights.remember_setting(state, bulbs, results, category, setting, value):
+            lights.save_state(client.account_id, state)
     display(args, results)
     return int(any(row["result"] in ("failed", "partial") for row in results))
 
@@ -127,7 +129,7 @@ def light_action(args, client, state):
 def history(args, client, state):
     bulbs = lights.targets(client, args, state)
     display(args, [
-        {"name": device_name(bulb), "colors": state.get("colors", {}).get(pepper_device_id(bulb), [])}
+        {"name": device_name(bulb), args.operation: state.get(args.operation, {}).get(pepper_device_id(bulb), [])}
         for bulb in bulbs
     ])
 
@@ -316,6 +318,14 @@ def pair(args, client, state):
     display(args, pairing.pair(client, args, existing))
 
 
+def forget_bulb(state, device_id):
+    for category in ("colors", "white", "timers"):
+        state.get(category, {}).pop(device_id, None)
+    aliases = state.get("aliases", {})
+    for name in [name for name, target in aliases.items() if target == device_id]:
+        del aliases[name]
+
+
 def unpair(args, client, state):
     bulb = lights.select_bulb(client.bulbs(), args.bulb, state)
     name = device_name(bulb)
@@ -323,6 +333,9 @@ def unpair(args, client, state):
         return display(args, {"name": name, "id": pepper_device_id(bulb), "operation": "remove from account"})
     confirm(args, f"Remove {name!r} from the Merkury Smart account?")
     result = pairing.unpair(client, bulb)
+    if result["result"] == "removed from the account":
+        forget_bulb(state, pepper_device_id(bulb))
+        lights.save_state(client.account_id, state)
     display(args, result)
     return int(result["result"] != "removed from the account")
 
@@ -411,9 +424,11 @@ def make_parser():
         dest="operation", required=True,
     )
     selection(command(recent, "colors", "List up to five recent CLI colors per bulb", history))
-    entry = command(recent, "use", "Apply a color from the selected bulb’s history", light_action)
+    selection(command(recent, "white", "List up to five recent CLI white temperatures per bulb", history))
+    entry = command(recent, "use", "Apply a color or white temperature from history", light_action)
     entry.add_argument("targets", nargs=1, metavar="BULB")
     entry.add_argument("index", type=lights.bounded_int(1, 5))
+    entry.add_argument("--category", choices=("colors", "white"), default="colors")
     entry.set_defaults(action="reuse", all=False, group=None)
     action_flags(entry)
 

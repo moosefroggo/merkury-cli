@@ -84,7 +84,7 @@ def provision(ssid, password, account, expected_id):
         if raw_mac and (not re.fullmatch(r"[0-9a-fA-F]{12}", raw_mac)
                         or raw_mac.casefold() != external_id[4:].casefold()):
             raise ValueError("The bulb returned conflicting Wi-Fi identifiers.")
-        if prompt(f"Bulb ID ends in {external_id[-4:]}. Provision this bulb? [y/N] ").casefold() != "y":
+        if prompt(f"Bulb ID ends in {external_id[-4:]}. Provision this bulb? [y/N] ").casefold() not in ("y", "yes"):
             raise ValueError("Pairing cancelled.")
 
         seed = secrets.token_bytes(32) if raw_mac else None
@@ -95,7 +95,7 @@ def provision(ssid, password, account, expected_id):
             wifi = {"data": encrypted_wifi(seed, bytes.fromhex(raw_mac), external_id, ssid, password)}
         else:
             # Older BW950 firmware uses a character shift for these two fields.
-            if prompt("This bulb's setup protocol does not encrypt Wi-Fi. Continue? [y/N] ").casefold() != "y":
+            if prompt("This bulb's setup protocol does not encrypt Wi-Fi credentials. Continue? [y/N] ").casefold() not in ("y", "yes"):
                 raise ValueError("Pairing cancelled.")
             wifi = {key: "".join(chr(ord(char) + 4) for char in value)
                     for key, value in {"ssid": ssid, "password": password}.items()}
@@ -128,6 +128,7 @@ def pair(client, args, existing=None):
     expected = existing.get("deviceId") if existing else args.device_id
     if existing and not expected:
         raise ValueError("Pepper did not return a hardware ID for this bulb.")
+    previous = {str(bulb.get("deviceId", "")).casefold(): bulb for bulb in client.bulbs()}
     print(RESET)
     prompt("Join this bulb’s MKRY… (or Merkury…) hotspot in the Mac Wi-Fi menu, then press Enter. ")
     try:
@@ -144,9 +145,10 @@ def pair(client, args, existing=None):
         except requests.RequestException:
             devices = []
         for bulb in devices:
-            wifi_status = str((bulb.get("wifi") or {}).get("status") or "").upper()
-            if external_id not in identifiers(bulb) or wifi_status in {"OFFLINE", "DISCONNECTED"}:
+            ids = {str(identifier).casefold() for identifier in identifiers(bulb) if identifier}
+            if external_id.casefold() not in ids or not registration_confirmed(bulb, previous.get(external_id.casefold()), ssid):
                 continue
+            wifi_status = str((bulb.get("wifi") or {}).get("status") or "").upper()
             if existing is None and args.name and device_name(bulb) != args.name:
                 client.setting(bulb, "name", args.name)
             return {
@@ -157,7 +159,24 @@ def pair(client, args, existing=None):
         if monotonic() >= deadline:
             break
         sleep(3)
-    raise ValueError("Pepper has not reported the bulb online. Check the new Wi-Fi and run merkury list before retrying.")
+    raise ValueError("Pepper did not confirm registration on the new Wi-Fi. Run merkury status before retrying.")
+
+
+def registration_confirmed(bulb, previous, ssid):
+    wifi = bulb.get("wifi") or {}
+    if str(bulb.get("status") or "").upper() != "ATTACHED":
+        return False
+    if str(wifi.get("status") or "").upper() in {"OFFLINE", "DISCONNECTED"}:
+        return False
+    if wifi.get("wifiNetworkName") not in (None, "", ssid):
+        return False
+    if previous is None:
+        return True
+    old_wifi = previous.get("wifi") or {}
+    return (
+        wifi.get("wifiNetworkName") == ssid != old_wifi.get("wifiNetworkName")
+        or bool(bulb.get("lastPairedAt") and bulb["lastPairedAt"] != previous.get("lastPairedAt"))
+    )
 
 
 def unpair(client, bulb):
