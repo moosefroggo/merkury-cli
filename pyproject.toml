@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "merkury-cli"
+version = "0.1.0"
+description = "Control Merkury Smart bulbs from a Mac terminal"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "argcomplete>=3,<4",
+    "cryptography>=44",
+    "keyring>=25,<26",
+    "playwright>=1.50,<2",
+    "requests>=2.32,<3",
+]
+
+[project.scripts]
+merkury = "merkury_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["merkury_cli"]
