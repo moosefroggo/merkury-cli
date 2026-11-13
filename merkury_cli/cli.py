@@ -480,11 +480,11 @@ def preset_list(args, _client, _state):
 
 
 def completion(args, _client, _state):
-    if args.shell == "zsh":
-        print("autoload -Uz bashcompinit && bashcompinit")
     from argcomplete import shellcode
 
-    print(shellcode(["merkury"], shell="bash"), end="")
+    if args.shell == "zsh":
+        print("if ! (( $+functions[compdef] )); then autoload -Uz compinit; compinit -D; fi")
+    print(shellcode(["merkury"], shell=args.shell), end="")
 
 
 def main():
